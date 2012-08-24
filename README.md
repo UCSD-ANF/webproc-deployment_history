@@ -1,7 +1,14 @@
 Introduction
 ------------
 
-These are scripts for generating maps and movies of the USArray deployment of seismic and inframet sensors over the lifetime of the network.
+These are scripts for generating maps and movies of the deployment of
+seismic and inframet sensors over the lifetime of the USArray
+Transportable Array network. These maps and movies are provided for the
+public on the [station deployment history][deploy] page of the
+[ANF website][anf_web].
+
+  [deploy]: http://anf.ucsd.edu/stations/deployment_history.php
+  [anf_web]: http://anf.ucsd.edu
 
 Dependencies
 ------------
@@ -29,4 +36,16 @@ The script usarray_deploy_map.py requires a number of GMT data files that are no
  * land_ocean.cpt
  * land_only.cpt
 
-These files are available somewhere in some format or other
+These [data files are available on the ANF website][data]. To install
+them, change directories the data subdirectory and untar the files
+there. You may also symlink them if you have them unpacked somewhere
+else on your system.
+
+  [data]: http://anf.ucsd.edu/data/support/webproc-deployment_history.data.tgz
+
+Configuration
+-------------
+
+The scripts in this archive make use of the Antelope parameter file
+format. They expect to have common.pf and stations.pf in the PFPATH
+somewhere.
