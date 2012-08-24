@@ -524,7 +524,7 @@ def main(argv=None):
                 print >>sys.stderr, "pscoast for contiguous United States execution failed:", e
         else:
             try:
-                retcode = call("grdimage usa.grd -R%s -JE%s -Cland_ocean.cpt -Iusa.grad -V -E100 -X2 -Y2 -K >> %s" % (region, center, ps[1]), shell=True)
+                retcode = call("grdimage data/usa.grd -R%s -JE%s -Cdata/land_ocean.cpt -Idata/usa.grad -V -E100 -X2 -Y2 -K >> %s" % (region, center, ps[1]), shell=True)
             except OSError, e:
                 print >>sys.stderr, "grdimage for usa.grd execution failed:", e
 
@@ -534,13 +534,13 @@ def main(argv=None):
         # {{{ START: Salton Sea co-ords -R-116.8/-115/32/34
         # Define a clip region
         try:
-            retcode = call("psclip saltonsea.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
+            retcode = call("psclip data/saltonsea.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Salton Sea psclip execution failed:", e
 
         # Make the Salton Sea be 'land-only' and put into the clipping region
         try:
-            retcode = call("grdimage saltonsea.grd -V -R%s -JE%s -Cland_only.cpt -Isaltonsea.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
+            retcode = call("grdimage data/saltonsea.grd -V -R%s -JE%s -Cdata/land_only.cpt -Idata/saltonsea.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Salton Sea grdimage execution failed:", e
 
@@ -561,13 +561,13 @@ def main(argv=None):
         # {{{ START: Death Valley co-ords -R
         # Define a clip region
         try:
-            retcode = call("psclip deathvalley.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
+            retcode = call("psclip data/deathvalley.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Death Valley psclip execution failed:", e
 
         # Make Death Valley be 'land-only' and put into the clipping region
         try:
-            retcode = call("grdimage deathvalley.grd -V -R%s -JE%s -Cland_only.cpt -Ideathvalley.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
+            retcode = call("grdimage data/deathvalley.grd -V -R%s -JE%s -Cdata/land_only.cpt -Idata/deathvalley.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Death Valley grdimage execution failed:", e
 
@@ -652,7 +652,7 @@ def main(argv=None):
                 print >>sys.stderr, "pscoast for Alaska execution failed:", e
         else:
             try:
-                retcode = call("grdimage alaska.grd -R%s -JE%s -Cland_ocean.cpt -Ialaska.grad -V -E100 -X0.1i -Y0.1i -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
+                retcode = call("grdimage data/alaska.grd -R%s -JE%s -Cdata/land_ocean.cpt -Idata/alaska.grad -V -E100 -X0.1i -Y0.1i -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
             except OSError, e:
                 print >>sys.stderr, "grdimage for alaska.grd execution failed:", e
 
