@@ -21,6 +21,11 @@ declare -A MAPPREFIX
 MAPPREFIX["seismic"]="deploymap_"
 MAPPREFIX["inframet"]="deploymap_inframet_"
 
+# Prefix to movie file
+declare -A MOVPREFIX
+MOVPREFIX["seismic"]="deployment_"
+MOVPREFIX["inframet"]="inframet_deployment_"
+
 # directory where symlinks are created
 TMPDIR="/tmp/mk_deployment_movies.$$"
 
@@ -108,7 +113,7 @@ function mk_android_movie {
   ffmpeg -r 2 -qscale 1 \
   -i $TMPDIR/img%03d.$ft \
   -r 6 -s 320x240 \
-  $OUTDIR/${OUTPREFIX}${MAPPREFIX[$dt]}${YEAR}_${MONTH}_android.${ht}.mp4
+  $OUTDIR/${OUTPREFIX}${MOVPREFIX[$dt]}${YEAR}_${MONTH}_android.${ht}.mp4
 
   return $?
 }
@@ -119,7 +124,7 @@ function mk_qt_movie {
   ffmpeg -r 2 -qscale 5 \
   -i $TMPDIR/img%03d.$ft \
   -r 6 \
-  $OUTDIR/${OUTPREFIX}${MAPPREFIX[$dt]}${YEAR}_${MONTH}_qt.${ht}.mov
+  $OUTDIR/${OUTPREFIX}${MOVPREFIX[$dt]}${YEAR}_${MONTH}_qt.${ht}.mov
 
   return $?
 }
@@ -133,7 +138,7 @@ function mk_iphone_movie {
   ffmpeg -r 2 -qscale 1 \
   -i $TMPDIR/img%03d.$ft \
   -vcodec libx264 -vpre medium -s 480:320 \
-  $OUTDIR/${OUTPREFIX}${MAPPREFIX[$dt]}${YEAR}_${MONTH}_iphone.${ht}.m4v
+  $OUTDIR/${OUTPREFIX}${MOVPREFIX[$dt]}${YEAR}_${MONTH}_iphone.${ht}.m4v
 
   return $?
 }
