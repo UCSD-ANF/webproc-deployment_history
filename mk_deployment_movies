@@ -1,0 +1,161 @@
+#!/bin/bash
+
+# Base directory for auto-generated images
+CACHEIMAGES="/anf/web/vhosts/anf.ucsd.edu/htdocs/cacheimages"
+CACHEMOVIES="/anf/web/vhosts/anf.ucsd.edu/htdocs/cachemovies"
+
+#OUTDIR="$CACHEMOVIES/maps"
+OUTDIR=/tmp
+OUTPREFIX="USArray_"
+
+TRUE=0
+FALSE=1
+
+# Directory where map images are located
+declare -A MAPDIR
+MAPDIR["seismic"]="${CACHEIMAGES}/maps/monthly_deployment"
+MAPDIR["inframet"]="${CACHEIMAGES}/maps/monthly_deployment_inframet"
+
+# Prefix to map image file
+declare -A MAPPREFIX
+MAPPREFIX["seismic"]="deploymap_"
+MAPPREFIX["inframet"]="deploymap_inframet_"
+
+# directory where symlinks are created
+TMPDIR="/tmp/mk_deployment_movies.$$"
+
+DEPLOYTYPES="seismic inframet"
+HISTTYPES="cumulative rolling"
+
+YEAR=$(date +%Y)
+MONTH=$(date +%m)
+
+function create_links {
+
+  #echo TMPDIR is $TMPDIR
+
+  local dt=$1 # one of seismic, inframet
+  local ht=$2 # one of cumulative, rolling
+  local link=$3 # 0 means create links, non-zero means don't
+
+  # Verify tempdir exists
+  if ! [ -d $TMPDIR ]; then
+    echo MAKING TMPDIR
+    mkdir -p $TMPDIR;
+  fi
+
+  local x=1
+  local imagefile
+  echo -n creating temp images
+  for imagefile in $( ls ${MAPDIR[$dt]}/${MAPPREFIX[$dt]}*.$ht.png | sort ); do
+    local counter=$(printf %03d $x)
+    local outfilep=$TMPDIR/img"$counter"
+    local outfile
+
+    if [ "$link" == $TRUE ] ; then
+
+      outfile=$outfilep.png
+      #echo "Linking ${TMPDIR}/img${counter}.png -> ${imagefile}"
+      echo -n .
+      ln -s "$imagefile" $outfile
+
+    else
+
+      outfile=$outfilep.jpg
+      #echo Converting $imagefile to $outfile
+      echo -n .
+      convert -quality 100 $imagefile $outfile
+      if [ ! $? ]; then
+        echo "ERROR: converting files from png to jpg failed for source file $imagefile, dest $outfile" 1>&2
+        return 1
+      fi
+
+    fi
+
+    x=$(($x+1))
+  done
+  echo "done"
+}
+
+function remove_links {
+  # Deployment type, seismic or inframet
+  local dt=$1
+  # ht is either cumulative or rolling
+  local ht=$2
+  # ft - file type, either jpg or png
+  local ft=$3
+
+  rm -f $TMPDIR/img*.$ft
+}
+
+function mk_movies {
+  # Deployment type, seismic or inframet
+  local dt=$1
+  # ht is either cumulative or rolling
+  local ht=$2
+  # ft - file type, either jpg or png
+  local ft=$3
+
+  mk_android_movie $dt $ht $ft || return $?
+  mk_qt_movie $dt $ht $ft || return $?
+  mk_iphone_movie $dt $ht $ft || return $?
+  return 0
+}
+
+function mk_android_movie {
+  local dt=$1 ht=$2 ft=$3
+
+  ffmpeg -r 2 -qscale 1 \
+  -i $TMPDIR/img%03d.$ft \
+  -r 6 -s 320x240 \
+  $OUTDIR/${OUTPREFIX}${MAPPREFIX[$dt]}${YEAR}_${MONTH}_android.${ht}.mp4
+
+  return $?
+}
+
+function mk_qt_movie {
+  local dt=$1 ht=$2 ft=$3
+
+  ffmpeg -r 2 -qscale 5 \
+  -i $TMPDIR/img%03d.$ft \
+  -r 6 \
+  $OUTDIR/${OUTPREFIX}${MAPPREFIX[$dt]}${YEAR}_${MONTH}_qt.${ht}.mov
+
+  return $?
+}
+
+function mk_iphone_movie {
+  local dt=$1 ht=$2 ft=$3
+
+  # We have to manually specify the -vcodec on linux because we have to
+  # provide -vpre medium when making m4v files. Works ok without
+  # -vcodec and -vpre on Darwin with macports ffmpeg
+  ffmpeg -r 2 -qscale 1 \
+  -i $TMPDIR/img%03d.$ft \
+  -vcodec libx264 -vpre medium -s 480:320 \
+  $OUTDIR/${OUTPREFIX}${MAPPREFIX[$dt]}${YEAR}_${MONTH}_iphone.${ht}.m4v
+
+  return $?
+}
+
+function cleanup {
+  rm -rf $TMPDIR
+}
+
+
+### Main ###
+for d in $DEPLOYTYPES; do
+  for h in $HISTTYPES; do
+    echo "Processing $d $h"
+    create_links $d $h $FALSE && \
+    mk_movies $d $h jpg && \
+    remove_links $d $h jpg
+  done
+done
+
+err=$?
+if [ $err ]; then
+  cleanup
+else
+  echo "an error occured, skipping cleanup"
+fi
