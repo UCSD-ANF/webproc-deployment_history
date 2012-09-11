@@ -117,7 +117,7 @@ function mk_android_movie {
     -i $TMPDIR/img%03d.$ft \
     -r 6 -s 320x240 \
     "$TMPDIR/$fname" && \
-    mv "$TMPDIR/$fname" "${MOVDIR[$dt]}/$fname"
+    mv -f "$TMPDIR/$fname" "${MOVDIR[$dt]}/$fname"
   return $?
 }
 
@@ -130,7 +130,7 @@ function mk_qt_movie {
     -i $TMPDIR/img%03d.$ft \
     -r 6 \
     $TMPDIR/$fname && \
-    mv "$TMPDIR/$fname" "${MOVDIR[$dt]}/$fname"
+    mv -f "$TMPDIR/$fname" "${MOVDIR[$dt]}/$fname"
   return $?
 }
 
@@ -146,7 +146,7 @@ function mk_iphone_movie {
     -i $TMPDIR/img%03d.$ft \
     -vcodec libx264 -vpre medium -s 480:320 \
     "$TMPDIR/$fname" && \
-    mv "$TMPDIR/$fname" "${MOVDIR[$dt]}/$fname"
+    mv -f "$TMPDIR/$fname" "${MOVDIR[$dt]}/$fname"
   return $?
 }
 
