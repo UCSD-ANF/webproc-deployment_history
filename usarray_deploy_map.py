@@ -148,7 +148,7 @@ def generate_inframet_locations(db, mtype, deploytype, year, month, imap=False, 
     process_list.append('dbsort sta ondate chan time')
 
     try:
-        antdb.dbprocess(infraptr, process_list)
+        infraptr = antdb.dbprocess(infraptr, process_list)
     except Exception,e:
         print "  - generate_inframet_locations(): Dbprocessing failed with exception: %s" % e
     else:
@@ -176,7 +176,7 @@ def generate_inframet_locations(db, mtype, deploytype, year, month, imap=False, 
               suffix='.xy',
               prefix='deployment_list_inframet_DECOM_'
             )
-            # Add the DECOM by hand as it is a manufactured 
+            # Add the DECOM by hand as it is a manufactured
             # file, not a snet per se. Call it _DECOM to force
             # it to plot first
             file_list['1_DECOM'] = infra_tmp_decom[1]
@@ -471,7 +471,7 @@ def main(argv=None):
 
         # Miscellaneous
         try:
-            retcode = check_call("gmtset"+" LINE_STEP 0.025c", shell=True)
+            retcode = check_call("gmtset"+" LINE_STEP 0.025c MEASURE_UNIT inch", shell=True)
         except OSError, e:
             print >>sys.stderr, "Execution failed:", e
         # }}} GMTSET
