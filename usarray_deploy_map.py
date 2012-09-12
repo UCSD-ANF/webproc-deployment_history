@@ -514,8 +514,6 @@ def main(argv=None):
             station_loc_files, counter = generate_inframet_locations(dbmaster, m, deploytype, year, month, infrasound_mapping, verbose, debug)
             rgbs = {'1_DECOM':'255/255/255'} # Init with the missing color and force to be first plotted
 
-        print "GOT HERE"
-
         snets_text = {}
         for key in sorted(station_loc_files.iterkeys()):
             if deploytype == 'seismic':
