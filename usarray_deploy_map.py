@@ -20,7 +20,7 @@ import os
 from shutil import move
 import tempfile
 from optparse import OptionParser
-from subprocess import call
+from subprocess import call, check_call
 # Load datascope functions
 sys.path.append(os.environ['ANTELOPE'] + '/data/python/antelope')
 import datascope as antdb
@@ -453,25 +453,25 @@ def main(argv=None):
             paper_orientation = 'portrait'
             paper_media = 'a1'
         try:
-            retcode = call("gmtset"+" PAGE_COLOR 255/255/255 PAGE_ORIENTATION %s PAPER_MEDIA %s" % (paper_orientation, paper_media), shell=True)
+            retcode = check_call("gmtset"+" PAGE_COLOR 255/255/255 PAGE_ORIENTATION %s PAPER_MEDIA %s" % (paper_orientation, paper_media), shell=True)
         except OSError, e:
             print >>sys.stderr, "Execution failed:", e
 
         # Basemap Anotation Parameters
         try:
-            retcode = call("gmtset"+" ANNOT_OFFSET_PRIMARY 0.2c ANNOT_OFFSET_SECONDARY 0.2c LABEL_OFFSET 0.2c", shell=True)
+            retcode = check_call("gmtset"+" ANNOT_OFFSET_PRIMARY 0.2c ANNOT_OFFSET_SECONDARY 0.2c LABEL_OFFSET 0.2c", shell=True)
         except OSError, e:
             print >>sys.stderr, "Execution failed:", e
 
         # Basemap Layout Parameters
         try:
-            retcode = call("gmtset"+" FRAME_WIDTH 0.2c MAP_SCALE_HEIGHT 0.2c TICK_LENGTH 0.2c X_AXIS_LENGTH 25c Y_AXIS_LENGTH 15c X_ORIGIN 2.5c Y_ORIGIN 2.5c UNIX_TIME_POS -0.2c/-0.2c", shell=True)
+            retcode = check_call("gmtset"+" FRAME_WIDTH 0.2c MAP_SCALE_HEIGHT 0.2c TICK_LENGTH 0.2c X_AXIS_LENGTH 25c Y_AXIS_LENGTH 15c X_ORIGIN 2.5c Y_ORIGIN 2.5c UNIX_TIME_POS -0.2c/-0.2c", shell=True)
         except OSError, e:
             print >>sys.stderr, "Execution failed:", e
 
         # Miscellaneous
         try:
-            retcode = call("gmtset"+" LINE_STEP 0.025c", shell=True)
+            retcode = check_call("gmtset"+" LINE_STEP 0.025c", shell=True)
         except OSError, e:
             print >>sys.stderr, "Execution failed:", e
         # }}} GMTSET
@@ -548,12 +548,12 @@ def main(argv=None):
 
         if debug == True:
             try:
-                retcode = call("pscoast -R%s -JE%s -Df -A5000 -S%s -G40/200/40 -V -X2 -Y2 -K >> %s" % (region, center, wet_rgb, ps[1]), shell=True)
+                retcode = check_call("pscoast -R%s -JE%s -Df -A5000 -S%s -G40/200/40 -V -X2 -Y2 -K >> %s" % (region, center, wet_rgb, ps[1]), shell=True)
             except OSError, e:
                 print >>sys.stderr, "pscoast for contiguous United States execution failed:", e
         else:
             try:
-                retcode = call("grdimage data/usa.grd -R%s -JE%s -Cdata/land_ocean.cpt -Idata/usa.grad -V -E100 -X2 -Y2 -K >> %s" % (region, center, ps[1]), shell=True)
+                retcode = check_call("grdimage data/usa.grd -R%s -JE%s -Cdata/land_ocean.cpt -Idata/usa.grad -V -E100 -X2 -Y2 -K >> %s" % (region, center, ps[1]), shell=True)
             except OSError, e:
                 print >>sys.stderr, "grdimage for usa.grd execution failed:", e
 
@@ -563,25 +563,25 @@ def main(argv=None):
         # {{{ START: Salton Sea co-ords -R-116.8/-115/32/34
         # Define a clip region
         try:
-            retcode = call("psclip data/saltonsea.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
+            retcode = check_call("psclip data/saltonsea.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Salton Sea psclip execution failed:", e
 
         # Make the Salton Sea be 'land-only' and put into the clipping region
         try:
-            retcode = call("grdimage data/saltonsea.grd -V -R%s -JE%s -Cdata/land_only.cpt -Idata/saltonsea.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
+            retcode = check_call("grdimage data/saltonsea.grd -V -R%s -JE%s -Cdata/land_only.cpt -Idata/saltonsea.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Salton Sea grdimage execution failed:", e
 
         # Color the Salton Sea Blue
         try:
-            retcode = call("pscoast -V -R%s -JE%s -C%s -Df -O -K >> %s" % (region, center, wet_rgb, ps[1]), shell=True)
+            retcode = check_call("pscoast -V -R%s -JE%s -C%s -Df -O -K >> %s" % (region, center, wet_rgb, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Salton Sea pscoast execution failed:", e
 
         # Close psclip
         try:
-            retcode = call("psclip -C -K -O >> %s" % ps[1], shell=True)
+            retcode = check_call("psclip -C -K -O >> %s" % ps[1], shell=True)
         except OSError, e:
             print >>sys.stderr, "Salton Sea psclip execution failed:", e
 
@@ -590,25 +590,25 @@ def main(argv=None):
         # {{{ START: Death Valley co-ords -R
         # Define a clip region
         try:
-            retcode = call("psclip data/deathvalley.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
+            retcode = check_call("psclip data/deathvalley.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Death Valley psclip execution failed:", e
 
         # Make Death Valley be 'land-only' and put into the clipping region
         try:
-            retcode = call("grdimage data/deathvalley.grd -V -R%s -JE%s -Cdata/land_only.cpt -Idata/deathvalley.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
+            retcode = check_call("grdimage data/deathvalley.grd -V -R%s -JE%s -Cdata/land_only.cpt -Idata/deathvalley.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Death Valley grdimage execution failed:", e
 
         # Color the Salton Sea Blue
         try:
-            retcode = call("pscoast -V -R%s -JE%s -C%s -Df -O -K >> %s" % (region, center, wet_rgb, ps[1]), shell=True)
+            retcode = check_call("pscoast -V -R%s -JE%s -C%s -Df -O -K >> %s" % (region, center, wet_rgb, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Death Valley pscoast execution failed:", e
 
         # Close psclip
         try:
-            retcode = call("psclip -C -K -O >> %s" % ps[1], shell=True)
+            retcode = check_call("psclip -C -K -O >> %s" % ps[1], shell=True)
         except OSError, e:
             print >>sys.stderr, "Death Valley psclip execution failed:", e
 
@@ -619,25 +619,25 @@ def main(argv=None):
         # {{{ Plot wet areas and coastline
         # Plot wet areas (not coast)
         try:
-            retcode = call("pscoast"+" -V -R%s -JE%s -W0.5p,%s -S%s -A0/2/4 -Df -O -K >> %s" % (region, center, wet_rgb, wet_rgb, ps[1]), shell=True)
+            retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,%s -S%s -A0/2/4 -Df -O -K >> %s" % (region, center, wet_rgb, wet_rgb, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "pscoast execution failed:", e
 
         # Plot coastline in black
         try:
-            retcode = call("pscoast"+" -V -R%s -JE%s -W0.5p,0/0/0 -Df -O -K >> %s" % (region, center, ps[1]), shell=True)
+            retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,0/0/0 -Df -O -K >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "pscoast execution failed:", e
 
         # Plot major rivers
         try:
-            retcode = call("pscoast"+" -V -R%s -JE%s -Ir/0.5p,0/0/255 -Df -O -K >> %s" % (region, center, ps[1]), shell=True)
+            retcode = check_call("pscoast"+" -V -R%s -JE%s -Ir/0.5p,0/0/255 -Df -O -K >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "pscoast execution failed:", e
 
         # Plot national (N1) and state (N2) boundaries
         try:
-            retcode = call("pscoast"+" -V -R%s -JE%s -N1/5/0/0/0 -N2/1/0/0/0 -Df -O -K >> %s" % (region, center, ps[1]), shell=True)
+            retcode = check_call("pscoast"+" -V -R%s -JE%s -N1/5/0/0/0 -N2/1/0/0/0 -Df -O -K >> %s" % (region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "pscoast execution failed:", e
 
@@ -645,7 +645,7 @@ def main(argv=None):
 
         # {{{ Overlay the grid
         try:
-            retcode = call("psbasemap -X0 -Y0 -R%s -JE%s -V -Bg%swesn -Lf-75/30/36/500k+l -O -K >> %s" % (region, center, usa_coords['GRIDLINES'], ps[1]), shell=True)
+            retcode = check_call("psbasemap -X0 -Y0 -R%s -JE%s -V -Bg%swesn -Lf-75/30/36/500k+l -O -K >> %s" % (region, center, usa_coords['GRIDLINES'], ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "psbasemap execution failed:", e
         # Add stations from local text files
@@ -657,12 +657,12 @@ def main(argv=None):
             if key == 'IU' or key == 'US': 
                 # Plots diamond symbols for US backbone stations
                 try:
-                    retcode = call("psxy %s -R -JE -V -Sd%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
+                    retcode = check_call("psxy %s -R -JE -V -Sd%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
                 except OSError, e:
                     print >>sys.stderr, "psxy execution failed:", e
             else:
                 try:
-                    retcode = call("psxy %s -R -JE -V -St%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
+                    retcode = check_call("psxy %s -R -JE -V -St%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
                 except OSError, e:
                     print >>sys.stderr, "psxy execution failed:", e
         # }}} Overlay the grid
@@ -676,37 +676,37 @@ def main(argv=None):
 
         if debug == True:
             try:
-                retcode = call("pscoast -R%s -JE%s -Df -A5000 -S%s -G40/200/40 -V -X0.1i -Y0.1i -O -K >> %s" % (ak_region, ak_center, wet_rgb, ps[1]), shell=True)
+                retcode = check_call("pscoast -R%s -JE%s -Df -A5000 -S%s -G40/200/40 -V -X0.1i -Y0.1i -O -K >> %s" % (ak_region, ak_center, wet_rgb, ps[1]), shell=True)
             except OSError, e:
                 print >>sys.stderr, "pscoast for Alaska execution failed:", e
         else:
             try:
-                retcode = call("grdimage data/alaska.grd -R%s -JE%s -Cdata/land_ocean.cpt -Idata/alaska.grad -V -E100 -X0.1i -Y0.1i -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
+                retcode = check_call("grdimage data/alaska.grd -R%s -JE%s -Cdata/land_ocean.cpt -Idata/alaska.grad -V -E100 -X0.1i -Y0.1i -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
             except OSError, e:
                 print >>sys.stderr, "grdimage for alaska.grd execution failed:", e
 
         # {{{ Plot wet areas and coastline
         # Plot wet areas (not coast)
         try:
-            retcode = call("pscoast"+" -V -R%s -JE%s -W0.5p,%s -S%s -A0/2/4 -Df -O -K >> %s" % (ak_region, ak_center, wet_rgb, wet_rgb, ps[1]), shell=True)
+            retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,%s -S%s -A0/2/4 -Df -O -K >> %s" % (ak_region, ak_center, wet_rgb, wet_rgb, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "pscoast execution failed:", e
 
         # Plot coastline in black
         try:
-            retcode = call("pscoast"+" -V -R%s -JE%s -W0.5p,0/0/0 -Df -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
+            retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,0/0/0 -Df -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "pscoast execution failed:", e
 
         # Plot major rivers
         try:
-            retcode = call("pscoast"+" -V -R%s -JE%s -Ir/0.5p,0/0/255 -Df -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
+            retcode = check_call("pscoast"+" -V -R%s -JE%s -Ir/0.5p,0/0/255 -Df -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "pscoast execution failed:", e
 
         # Plot national (N1) and state (N2) boundaries
         try:
-            retcode = call("pscoast"+" -V -R%s -JE%s -N1/5/0/0/0 -N2/1/0/0/0 -Df -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
+            retcode = check_call("pscoast"+" -V -R%s -JE%s -N1/5/0/0/0 -N2/1/0/0/0 -Df -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "pscoast execution failed:", e
 
@@ -714,7 +714,7 @@ def main(argv=None):
 
         # {{{ Overlay the grid
         try:
-            retcode = call("psbasemap -X0 -Y0 -R%s -JE%s -V -Bg%swesn -Lf-145/57/60/500k+l -O -K >> %s" % (ak_region, ak_center, ak_coords['GRIDLINES'], ps[1]), shell=True)
+            retcode = check_call("psbasemap -X0 -Y0 -R%s -JE%s -V -Bg%swesn -Lf-145/57/60/500k+l -O -K >> %s" % (ak_region, ak_center, ak_coords['GRIDLINES'], ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "psbasemap execution failed:", e
         # Add stations from local text files
@@ -726,12 +726,12 @@ def main(argv=None):
             if key == 'IU' or key == 'US': 
                 # Plots diamond symbols for US backbone stations
                 try:
-                    retcode = call("psxy %s -R -JE -V -Sd%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
+                    retcode = check_call("psxy %s -R -JE -V -Sd%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
                 except OSError, e:
                     print >>sys.stderr, "psxy execution failed:", e
             else:
                 try:
-                    retcode = call("psxy %s -R -JE -V -St%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
+                    retcode = check_call("psxy %s -R -JE -V -St%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
                 except OSError, e:
                     print >>sys.stderr, "psxy execution failed:", e
         # }}} Overlay the grid
@@ -788,7 +788,7 @@ def main(argv=None):
         if verbose or debug:
             print ' - Overlay the copyright notice'
         try:
-            retcode = call("pstext %s -R%s -JE%s -V -D0.25/0.25 -S2p/255/255/255 -P -O -K >> %s" % (copyright_file[1], region, center, ps[1]), shell=True)
+            retcode = check_call("pstext %s -R%s -JE%s -V -D0.25/0.25 -S2p/255/255/255 -P -O -K >> %s" % (copyright_file[1], region, center, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Copyright msg plotting error: pstext execution failed:", e
         else:
@@ -798,7 +798,7 @@ def main(argv=None):
         if verbose or debug:
             print ' - Overlay the date legend stamp'
         try:
-            retcode = call("pstext " + time_file[1] + " -R" + region + " -JE" + center + " -V -D0.25/0.25 -W255/255/255o1p/0/0/0 -C50% -P -O -K >> " + ps[1], shell=True)
+            retcode = check_call("pstext " + time_file[1] + " -R" + region + " -JE" + center + " -V -D0.25/0.25 -W255/255/255o1p/0/0/0 -C50% -P -O -K >> " + ps[1], shell=True)
         except OSError, e:
             print >>sys.stderr, "Time msg plotting error: pstext execution failed:", e
         else:
@@ -816,7 +816,7 @@ def main(argv=None):
             legend_height = '1.7'
 
         try:
-            retcode = call("pslegend %s -R%s -JE%s -V -D-90/26/%si/%si/TC -F -G255/255/255 -P -O >> %s" % (snets_file[1], region, center, legend_width, legend_height, ps[1]), shell=True)
+            retcode = check_call("pslegend %s -R%s -JE%s -V -D-90/26/%si/%si/TC -F -G255/255/255 -P -O >> %s" % (snets_file[1], region, center, legend_width, legend_height, ps[1]), shell=True)
         except OSError, e:
             print >>sys.stderr, "Network (snet) legend plotting error: pslegend execution failed:", e
         else:
@@ -829,7 +829,7 @@ def main(argv=None):
             if verbose or debug:
                 print " - Running Imagemagick's convert command on postscript file %s" % ps[1]
             try:
-                retcode = call("convert -trim -depth 16 +repage %s %s" % (ps[1], png), shell=True)
+                retcode = check_call("convert -trim -depth 16 +repage %s %s" % (ps[1], png), shell=True)
             except OSError, e:
                 print >>sys.stderr, "Execution failed:", e
             else:
