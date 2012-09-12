@@ -22,7 +22,7 @@ import tempfile
 from optparse import OptionParser
 from subprocess import call
 # Load datascope functions
-sys.path.append(os.environ['ANTELOPE'] + '/local/data/python/antelope')
+sys.path.append(os.environ['ANTELOPE'] + '/data/python/antelope')
 import datascope as antdb
 from stock import pfupdate, pfget, pfget_arr, epoch2str, epoch, str2epoch
 from time import time, gmtime, strftime
@@ -148,19 +148,34 @@ def generate_inframet_locations(db, mtype, deploytype, year, month, imap=False, 
     process_list.append('dbsort sta ondate chan time')
 
     try:
-        infraptr.process(process_list)
+        antdb.dbprocess(infraptr, process_list)
     except Exception,e:
         print "  - generate_inframet_locations(): Dbprocessing failed with exception: %s" % e
     else:
         all_stations = {}
-        infra_tmp_all = tempfile.mkstemp(suffix='.xy', prefix='deployment_list_inframet_ALL_')
-        infra_tmp_ncpa = tempfile.mkstemp(suffix='.xy', prefix='deployment_list_inframet_NCPA_')
-        infra_tmp_setra = tempfile.mkstemp(suffix='.xy', prefix='deployment_list_inframet_SETRA_')
-        infra_tmp_mems = tempfile.mkstemp(suffix='.xy', prefix='deployment_list_inframet_MEMS_')
-        file_list = {'complete':infra_tmp_all[1], 'ncpa':infra_tmp_ncpa[1], 'setra':infra_tmp_setra[1], 'mems':infra_tmp_mems[1]}
+
+        infra_tmp_all = tempfile.mkstemp(suffix='.xy',
+                                         prefix='deployment_list_inframet_ALL_')
+
+        infra_tmp_ncpa = tempfile.mkstemp(suffix='.xy',
+                                          prefix='deployment_list_inframet_NCPA_')
+
+        infra_tmp_setra = tempfile.mkstemp(suffix='.xy',
+                                           prefix='deployment_list_inframet_SETRA_')
+
+        infra_tmp_mems = tempfile.mkstemp(suffix='.xy',
+                                          prefix='deployment_list_inframet_MEMS_')
+
+        file_list = {'complete':infra_tmp_all[1], 'ncpa':infra_tmp_ncpa[1],
+                     'setra':infra_tmp_setra[1], 'mems':infra_tmp_mems[1]}
+
         counter = {'complete':0, 'ncpa':0, 'setra':0, 'mems':0}
+
         if mtype == 'cumulative':
-            infra_tmp_decom = tempfile.mkstemp(suffix='.xy', prefix='deployment_list_inframet_DECOM_')
+            infra_tmp_decom = tempfile.mkstemp(
+              suffix='.xy',
+              prefix='deployment_list_inframet_DECOM_'
+            )
             # Add the DECOM by hand as it is a manufactured 
             # file, not a snet per se. Call it _DECOM to force
             # it to plot first
@@ -172,14 +187,18 @@ def generate_inframet_locations(db, mtype, deploytype, year, month, imap=False, 
             print "  - generate_inframet_locations(): Dbgroup failed with exception: %s" % e
         else:
             # {{{ Get values into a easily digestible dict
-            for i in range(infraptr_grp.query('dbRECORD_COUNT')):
+            for i in range(antdb.dbquery(infraptr_grp, antdb.dbRECORD_COUNT)):
                 infraptr_grp[3] = i
-                sta, [db, view, end_rec, start_rec] = infraptr_grp.getv('sta', 'bundle')
-                all_stations[sta] = {'sensors': {'MEMS':False, 'NCPA':False, 'SETRA':False}, 'location': {'lat':0, 'lon':0}}
+                sta, [db, view, end_rec, start_rec] = \
+                    antdb.dbgetv(infraptr_grp, 'sta', 'bundle')
+                all_stations[sta] = {'sensors': {'MEMS':False, 'NCPA':False,
+                                                 'SETRA':False},
+                                     'location': {'lat':0, 'lon':0}}
                 for j in range(start_rec, end_rec):
                     infraptr[3] = j
                     # Cannot use time or endtime as that applies to the station, not to the inframet sensor
-                    ondate, offdate, chan, lat, lon = infraptr.getv('ondate', 'offdate', 'chan', 'lat', 'lon')
+                    ondate, offdate, chan, lat, lon = \
+                        antdb.dbgetv(infraptr, 'ondate', 'offdate', 'chan', 'lat', 'lon')
                     all_stations[sta]['location']['lat'] = lat
                     all_stations[sta]['location']['lon'] = lon
 
@@ -246,8 +265,8 @@ def generate_inframet_locations(db, mtype, deploytype, year, month, imap=False, 
             os.close(infra_tmp_mems[0])
             if mtype == 'cumulative':
                 os.close(infra_tmp_decom[0])
-            infraptr_grp.free()
-        infraptr.free()
+            antdb.dbfree(infraptr_grp)
+        antdb.dbclose(infraptr)
     return file_list, counter
  
 def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, debug=False):
@@ -259,16 +278,18 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
 
     # {{{ Get the networks
     snetptr = antdb.dbopen(db, 'r')
-    snetptr.process(['dbopen site', 'dbjoin snetsta', 'dbjoin deployment'])
-    snetptr.sort('snet', unique=True)
+    snetptr = antdb.dbprocess(snetptr,
+                            ['dbopen site',
+                             'dbjoin snetsta',
+                             'dbjoin deployment'])
+    snetptr = antdb.dbsort(snetptr,'snet', unique=True)
     usnets = []
     try:
-        for i in range(snetptr.query('dbRECORD_COUNT')):
-            snetptr[3] = i
-            mysnet = snetptr.getv('snet')[0]
+        for i in range(antdb.dbquery(snetptr, antdb.dbRECORD_COUNT )):
+            snetptr['record'] = i
+            mysnet = antdb.dbgetv(snetptr,'snet')[0]
             usnets.append(mysnet)
-        snetptr.free()
-        snetptr.close()
+        antdb.dbclose(snetptr)
     except Exception, e:
         print "generate_sta_locations(): Exception occurred: %s" % e
     # }}}
@@ -287,7 +308,7 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
         print "generate_sta_locations(): Map type ('%s') is not recognized" % mtype
         exit()
     process_list.append('dbsort snet sta')
-    dbptr.process(process_list)
+    dbptr = antdb.dbprocess(dbptr,process_list)
     # }}}
 
     file_list = {}
@@ -302,7 +323,8 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
 
     # {{{ Loop over unqiue snets
     for s in usnets:
-        stmp = tempfile.mkstemp(suffix='.xy', prefix='deployment_list_%s_' % s)
+        stmp = tempfile.mkstemp(suffix='.xy',
+                                prefix='deployment_list_%s_' % s)
         file_ptr = stmp[0]
         file_name = stmp[1]
         if verbose:
@@ -314,19 +336,25 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
             print "Error occurred: %s" % e
         else:
             this_counter = 0
-            for i in range(dbptr_snet.query('dbRECORD_COUNT')):
+            for i in range( antdb.dbquery( dbptr_snet,
+                                          antdb.dbRECORD_COUNT ) ):
                 dbptr_snet[3] = i
                 if mtype == 'rolling':
-                    sta, lat, lon, snet = dbptr_snet.getv('sta', 'lat', 'lon', 'snet')
-                    os.write(file_ptr, "%s    %s    # %s %s\n" % (lat, lon, snet, sta))
+                    sta, lat, lon, snet = antdb.dbgetv(dbptr_snet,'sta', 'lat',
+                                                          'lon', 'snet')
+                    os.write(file_ptr, "%s    %s    # %s %s\n" % (lat, lon,
+                                                                  snet, sta))
                     this_counter = this_counter + 1
                 elif mtype == 'cumulative':
-                    sta, lat, lon, snet, sta_time, sta_endtime = dbptr_snet.getv('sta', 'lat', 'lon', 'snet', 'time', 'endtime')
+                    sta, lat, lon, snet, sta_time, sta_endtime = antdb.dbgetv(
+                      dbptr_snet, 'sta', 'lat', 'lon', 'snet', 'time', 'endtime')
                     if sta_endtime >= start_time:
-                        os.write(file_ptr, "%s    %s    # %s %s\n" % (lat, lon, snet, sta))
+                        os.write(file_ptr, "%s    %s    # %s %s\n" %
+                                 (lat, lon, snet, sta))
                         this_counter = this_counter + 1
                     else:
-                        os.write(decom_ptr, "%s    %s    # DECOM %s\n" % (lat, lon, sta))
+                        os.write(decom_ptr, "%s    %s    # DECOM %s\n" %
+                                 (lat, lon, sta))
                         this_decom_counter = this_decom_counter + 1
             counter[s] = this_counter
             os.close(file_ptr)
@@ -335,8 +363,7 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
         counter['decom'] = this_decom_counter
     # }}}
 
-    dbptr.free()
-    dbptr.close()
+    antdb.dbclose(dbptr)
 
     # Add the DECOM by hand as it is a manufactured 
     # file, not a snet per se. Call it _DECOM to force
@@ -451,18 +478,18 @@ def main(argv=None):
 
         # Determine region of interest and center of plot
         # The lat and lon padding ensures we get full topo and bathy.
-        minlon = usa_coords['MINLON']
-        maxlon = usa_coords['MAXLON']
-        minlat = usa_coords['MINLAT']
-        maxlat = usa_coords['MAXLAT']
+        minlon = int(usa_coords['MINLON'])
+        maxlon = int(usa_coords['MAXLON'])
+        minlat = int(usa_coords['MINLAT'])
+        maxlat = int(usa_coords['MAXLAT'])
         region = '%s/%s/%s/%s' % (minlon, minlat, maxlon, maxlat) + 'r'
         centerlat = (maxlat - minlat)/2 + minlat
         centerlon = (maxlon - minlon)/2 + minlon
 
-        ak_minlon = ak_coords['MINLON']
-        ak_maxlon = ak_coords['MAXLON']
-        ak_minlat = ak_coords['MINLAT']
-        ak_maxlat = ak_coords['MAXLAT']
+        ak_minlon = int(ak_coords['MINLON'])
+        ak_maxlon = int(ak_coords['MAXLON'])
+        ak_minlat = int(ak_coords['MINLAT'])
+        ak_maxlat = int(ak_coords['MAXLAT'])
         ak_region = '%s/%s/%s/%s' % (ak_minlon, ak_minlat, ak_maxlon, ak_maxlat) + 'r'
         ak_centerlat = (ak_maxlat - ak_minlat)/2 + ak_minlat
         ak_centerlon = (ak_maxlon - ak_minlon)/2 + ak_minlon
@@ -486,6 +513,8 @@ def main(argv=None):
         elif deploytype == 'inframet':
             station_loc_files, counter = generate_inframet_locations(dbmaster, m, deploytype, year, month, infrasound_mapping, verbose, debug)
             rgbs = {'1_DECOM':'255/255/255'} # Init with the missing color and force to be first plotted
+
+        print "GOT HERE"
 
         snets_text = {}
         for key in sorted(station_loc_files.iterkeys()):
