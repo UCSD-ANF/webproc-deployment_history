@@ -99,8 +99,8 @@ function remove_stills {
   local dt=$1
   # ht is either cumulative or rolling
   local ht=$2
-  # ft - file type, either jpg or png
-  local ft=$3
+  # ft - file type, always jpg
+  local ft=jpg
 
   rm -f $TMPDIR/img*.$ft
 }
