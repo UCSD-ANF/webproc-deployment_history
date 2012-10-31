@@ -85,10 +85,19 @@ def process_command_line(argv):
         size = False
 
     if len(args) < 2:
-        print "You have not specified a year and/or month, therefore using the most recently passed year & month"
-        one_month_ago_unix = (datetime.date.today() - datetime.timedelta(1*365/12))
-        month = one_month_ago_unix.strftime("%m")
+        today = datetime.date.today()
+        m = today.month
+        y = today.year
+        if m == 1:
+          m = 12
+          y -= 1
+        else:
+          m -= 1
+        one_month_ago_unix=today.replace(y, m)
+        month = one_month_ago_unix.month
         year = one_month_ago_unix.year
+        print "You have not specified a year and/or month."
+        print "Using default value of last whole month, which is %d %02d" % (year, month)
     else:
         year = args[0]
         month = args[1]
