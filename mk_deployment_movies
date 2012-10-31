@@ -64,7 +64,7 @@ function create_stills {
 
   # Verify tempdir exists
   if ! [ -d $TMPDIR ]; then
-    echo MAKING TMPDIR 1>&2
+    elog -l MAKING TMPDIR
     mkdir -p $TMPDIR;
   fi
 
@@ -83,7 +83,7 @@ function create_stills {
     echo -n . 1>&2 # spit out a progress dot for each image
     convert -quality 100 $imagefile $outfile
     if [ ! $? ]; then
-      echo "ERROR: converting files from png to jpg failed for source file $imagefile, dest $outfile" 1>&2
+      elog -c "ERROR: converting files from png to jpg failed for source file $imagefile, dest $outfile"
       return 1
     fi
 
@@ -187,7 +187,7 @@ function set_prev_year_month {
 function validate_pf {
   local mypfname=$1
   if [ "$(pfecho -w $mypfname)" != '' ] ; then return 0; fi
-  echo "Can't find parameter file \"$mypfname\"" 1>&2
+  elog -c "Can't find parameter file \"$mypfname\""
   return 1
 }
 
@@ -214,6 +214,7 @@ function load_pf_globals {
 
 ### Main ###
 
+elog -n $0 starting
 validate_pf $PFNAME || exit 1
 
 load_pf_globals
@@ -227,7 +228,7 @@ set_prev_year_month
 
 for d in $DEPLOYTYPES; do
   for h in $HISTTYPES; do
-    echo "Processing $d $h"
+    elog -n "Processing $d $h"
     create_stills $d $h && \
     mk_movies $d $h && \
     remove_stills $d $h
@@ -238,5 +239,5 @@ res=$?
 if [ $res ]; then
   cleanup
 else
-  echo "an error occured, skipping cleanup"
+  elog -c "an error occured, skipping cleanup"
 fi
