@@ -238,6 +238,8 @@ done
 res=$?
 if [ $res ]; then
   cleanup
+  elog -n $0 finished successfully
 else
   elog -c "an error occured, skipping cleanup"
 fi
+exit $res
