@@ -93,9 +93,8 @@ def process_command_line(argv):
           y -= 1
         else:
           m -= 1
-        one_month_ago_unix=today.replace(y, m)
-        month = one_month_ago_unix.month
-        year = one_month_ago_unix.year
+        month = m
+        year = y
         print "You have not specified a year and/or month."
         print "Using default value of last whole month, which is %d %02d" % (year, month)
     else:
