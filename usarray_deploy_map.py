@@ -28,6 +28,10 @@ from stock import pfupdate, pfget, pfget_arr, epoch2str, epoch, str2epoch
 from time import time, gmtime, strftime
 import datetime
 
+# return the first year that data is available for a given project
+def get_start_year():
+  return 2004
+
 def process_command_line(argv):
     """Return a 6-tuple: (verbosity, year, month, maptype, deploytype, size).
     'argv' is a list of arguments, or 'None' for ''sys.argv[1:]''.
@@ -100,11 +104,11 @@ def process_command_line(argv):
     else:
         year = int(args[0])
         month = int(args[1])
-        if year < 2004:
+        if year < get_start_year():
             print "Your year integer ('%s') must be four characters. Goodbye." % year
             exit()
-        if month < 1:
-            print "No month specified. Goodbye."
+        if 12 < month < 1:
+            print "Bad month number ('%d') specified. Goodbye." % month
             exit()
 
     return verbose, debug, year, month, maptype, deploytype, size
