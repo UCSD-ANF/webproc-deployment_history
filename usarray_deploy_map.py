@@ -98,13 +98,13 @@ def process_command_line(argv):
         print "You have not specified a year and/or month."
         print "Using default value of last whole month, which is %d %02d" % (year, month)
     else:
-        year = args[0]
-        month = args[1]
-        if len(year) < 4:
+        year = int(args[0])
+        month = int(args[1])
+        if year < 2004:
             print "Your year integer ('%s') must be four characters. Goodbye." % year
             exit()
-        if len(month) < 2:
-            print "Your month integer ('%s') must be two characters. Goodbye." % month
+        if month < 1:
+            print "No month specified. Goodbye."
             exit()
 
     return verbose, debug, year, month, maptype, deploytype, size
@@ -436,14 +436,14 @@ def main(argv=None):
 
     for m in maptype:
         if size == 'wario':
-            ps = tempfile.mkstemp(suffix='.ps', prefix='deployment_history_map_%s_%s_%s_%s_WARIO_' % (deploytype, year, month, m))
+            ps = tempfile.mkstemp(suffix='.ps', prefix='deployment_history_map_%s_%d_%02d_%s_WARIO_' % (deploytype, year, month, m))
             png = 'PNG not created for tiled display wario. Create by hand in Photoshop'
         else:
-            ps = tempfile.mkstemp(suffix='.ps', prefix='deployment_history_map_%s_%s_%s_%s_' % (deploytype, year, month, m))
+            ps = tempfile.mkstemp(suffix='.ps', prefix='deployment_history_map_%s_%d_%02d_%s_' % (deploytype, year, month, m))
             if deploytype == 'inframet':
-                finalfile = 'deploymap_%s_%s_%s.%s.png' % (deploytype, year, month, m)
+                finalfile = 'deploymap_%s_%d_%02d.%s.png' % (deploytype, year, month, m)
             else:
-                finalfile = 'deploymap_%s_%s.%s.png' % (year, month, m)
+                finalfile = 'deploymap_%d_%02d.%s.png' % (year, month, m)
             png = '%s/%s' % (output_dir, finalfile)
 
         if verbose or debug or size:
@@ -754,7 +754,7 @@ def main(argv=None):
         time_file = tempfile.mkstemp(suffix='.txt', prefix='year_month_')
         # time_file = "%syear_month.txt" % tmp
         tf = open(time_file[1], 'w')
-        tf.write("-75.5    17    20    0    1    BR    %s\ %s" % (year, month))
+        tf.write("-75.5    17    20    0    1    BR    %d\ %02d" % (year, month))
         tf.close()
 
         if verbose or debug:
