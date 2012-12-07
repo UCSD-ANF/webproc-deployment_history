@@ -1,0 +1,10 @@
+Bugs:
+
+Static images:
+* Duplicate icons overlaid on cumulative plots (recent development)
+* Script crashes if no parameter files in place
+* Script doesn't properly handle exceptions, just prints an error message and continues
+* Script doesn't properly handle missing data files
+
+Movies:
+* It's written in bash.
