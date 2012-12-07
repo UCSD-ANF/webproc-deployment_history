@@ -17,7 +17,7 @@ GMT - the generic mapping tools
 
 ffmpeg - for movies
 
-BRTT Antelope with Python bindings. 5.1-64 or earlier for the time being
+BRTT Antelope with Python bindings. Uses the 5.2-64 bindings.
 
 ### Map Data ###
 
