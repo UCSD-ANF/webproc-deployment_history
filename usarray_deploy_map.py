@@ -114,15 +114,14 @@ def process_command_line(argv):
     return verbose, debug, year, month, maptype, deploytype, size
 
 def generate_times(year, month):
-    """Generate a start and end
-    time unix timestamps for
-    dbsubsets
-    """
-    future_month = int(month) + 1
-    if len(str(future_month)) == 1:
-        future_month = '0'+str(future_month)
-    start_time = str2epoch('%s-%s-01 00:00' % (year, month))
-    end_time = str2epoch('%s-%s-01 00:00' % (year, future_month))
+    """Generate start and end time unix timestamps for dbsubsets """
+
+    month=int(month)
+    year=int(year)
+    next_month = (month + 1) % 12
+    next_year = year + 1 if next_month==1 else year
+    start_time = str2epoch('%d-%02d-01 00:00' % (year, month))
+    end_time = str2epoch('%d-%02d-01 00:00' % (next_year, next_month))
     return start_time, end_time
 
 def generate_inframet_locations(db, mtype, deploytype, year, month, imap=False, verbose=False, debug=False):
