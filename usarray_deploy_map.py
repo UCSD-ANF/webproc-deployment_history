@@ -22,11 +22,12 @@ import tempfile
 from optparse import OptionParser
 from subprocess import call, check_call
 # Load datascope functions
-sys.path.append(os.environ['ANTELOPE'] + '/data/python/antelope')
-import datascope as antdb
-from stock import pfupdate, pfget, pfget_arr, epoch2str, epoch, str2epoch
+sys.path.append(os.environ['ANTELOPE'] + '/data/python')
+import antelope.datascope as antdb
+from antelope.stock import pfupdate, pfget, pfget_arr, epoch2str, epoch, str2epoch
 from time import time, gmtime, strftime
 import datetime
+import antelope.elog as elog
 
 # return the first year that data is available for a given project
 def get_start_year():
@@ -197,7 +198,7 @@ def generate_inframet_locations(db, mtype, deploytype, year, month, imap=False, 
         except Exception,e:
             print "  - generate_inframet_locations(): Dbgroup failed with exception: %s" % e
         else:
-            # {{{ Get values into a easily digestible dict
+            # Get values into a easily digestible dict
             for i in range(antdb.dbquery(infraptr_grp, antdb.dbRECORD_COUNT)):
                 infraptr_grp[3] = i
                 sta, [db, view, end_rec, start_rec] = \
@@ -231,10 +232,10 @@ def generate_inframet_locations(db, mtype, deploytype, year, month, imap=False, 
                             all_stations[sta]['sensors']['SETRA'] = True
                     else:
                         print "   - ***Channel %s not recognized***" % chan
-            # }}}
+            #
             if debug:
                 print all_stations
-            # {{{ Process dict
+            # Process dict
             for sta in sorted(all_stations.iterkeys()):
                 if verbose or debug:
                      print "   - Working on station %s" % sta
@@ -271,7 +272,6 @@ def generate_inframet_locations(db, mtype, deploytype, year, month, imap=False, 
                         elif sensors['MEMS']:
                             os.write(infra_tmp_mems[0], "%s    %s    # %s \n" % (lat, lon, sta))
                             counter['mems'] += 1
-            # }}}
             os.close(infra_tmp_all[0])
             os.close(infra_tmp_mems[0])
             if mtype == 'cumulative':
@@ -287,7 +287,7 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
     """
     start_time, end_time = generate_times(year, month)
 
-    # {{{ Get the networks
+    # Get the networks
     snetptr = antdb.dbopen(db, 'r')
     snetptr = antdb.dbprocess(snetptr,
                             ['dbopen site',
@@ -303,9 +303,8 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
         antdb.dbclose(snetptr)
     except Exception, e:
         print "generate_sta_locations(): Exception occurred: %s" % e
-    # }}}
 
-    # {{{ Define dbops
+    # Define dbops
     process_list = [
         'dbopen site', 
         'dbjoin snetsta', 
@@ -320,7 +319,6 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
         exit()
     process_list.append('dbsort snet sta')
     dbptr = antdb.dbprocess(dbptr,process_list)
-    # }}}
 
     file_list = {}
     counter = {}
@@ -332,7 +330,7 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
     if mtype == 'cumulative':
         this_decom_counter = 0
 
-    # {{{ Loop over unqiue snets
+    # Loop over unqiue snets
     for s in usnets:
         stmp = tempfile.mkstemp(suffix='.xy',
                                 prefix='deployment_list_%s_' % s)
@@ -372,7 +370,6 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
             file_list[s] = file_name
     if mtype == 'cumulative':
         counter['decom'] = this_decom_counter
-    # }}}
 
     antdb.dbclose(dbptr)
 
@@ -384,25 +381,147 @@ def generate_sta_locations(db, mtype, deploytype, year, month, verbose=False, de
 
     return file_list, counter
 
+def set_gmt_params(paper_orientation, paper_media):
+    """ Calls gmtset to configure various GMT parameters just for this script """
+
+    # Leaving on shell=True just in case Rob had some magic environment 
+    # set up that this script doesn't define explicily
+
+    # Plot media
+    retcode = check_call( " ".join([ "gmtset",
+    "PAGE_COLOR", "255/255/255",
+    "PAGE_ORIENTATION", paper_orientation,
+    "PAPER_MEDIA", paper_media ]), shell=True )
+
+    # Basemap Anotation Parameters
+    retcode = check_call( " ".join([
+                "gmtset",
+                "ANNOT_OFFSET_PRIMARY", "0.2c",
+                "ANNOT_OFFSET_SECONDARY", "0.2c",
+                "LABEL_OFFSET", "0.2c" ]), shell=True)
+
+    # Basemap Layout Parameters
+    retcode = check_call( " ".join([
+            "gmtset",
+            "FRAME_WIDTH", "0.2c",
+            "MAP_SCALE_HEIGHT", "0.2c",
+            "TICK_LENGTH", "0.2c",
+            "X_AXIS_LENGTH", "25c",
+            "Y_AXIS_LENGTH", "15c",
+            "X_ORIGIN", "2.5c",
+            "Y_ORIGIN", "2.5c",
+            "UNIX_TIME_POS", "-0.2c/-0.2c"]), shell=True)
+
+    # Miscellaneous
+    retcode = check_call( " ".join([
+                "gmtset",
+                "LINE_STEP", "0.025c",
+                "MEASURE_UNIT", "inch" ]), shell=True)
+
+def gmt_fix_land_below_sealevel(regionname, description, region, center,
+        outfile, wet_rgb):
+    """run psclip to fix coloring of dry areas that are below sea-level"""
+
+    # like original calls, assume data files are all in "data/"
+    landfile="data/land_only.cpt"
+    grdfile="data/" + regionname + ".grd"
+    gradientfile="data/" + regionname + ".grad"
+    xyfile="data/" + regionname + ".xy"
+
+   # Define a clip region
+    try:
+        retcode = check_call("psclip %s -R%s -JE%s -V -K -O >> %s" % (xyfile,
+                    region, center, outfile), shell=True)
+    except OSError, e:
+        elog.complain (description + " psclip execution failed")
+        raise
+
+    # Make area 'land-only' and put into the clipping region
+    try:
+        retcode = check_call("grdimage %s -V -R%s -JE%s -C%s -I%s -O -K >> %s"
+                % (grdfile, region, center, landfile, gradientfile, outfile),
+                shell=True)
+    except OSError, e:
+        elog.complain (description + " grdimage execution failed")
+        raise
+
+    # Color the actual water areas blue
+    try:
+        retcode = check_call("pscoast -V -R%s -JE%s -C%s -Df -O -K >> %s" % (
+                    region, center, wet_rgb, outfile), shell=True)
+    except OSError, e:
+        elog.complain (description + " pscoast execution failed")
+        raise
+
+    # Close psclip
+    try:
+        retcode = check_call("psclip -C -K -O >> %s" % outfile, shell=True)
+    except OSError, e:
+        elog.complain (description + " psclip execution failed")
+        raise
+
+def gmt_plot_wet_and_coast(region, center, wet_rgb, outfile):
+    """plot wet areas and coastline"""
+    try:
+        # Plot wet areas (not coast)
+        retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,%s -S%s -A0/2/4 -Df -O -K >> %s" % (region, center, wet_rgb, wet_rgb, outfile), shell=True)
+        # Plot coastline in black
+        retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,0/0/0 -Df -O -K >> %s" % (region, center, outfile), shell=True)
+        # Plot major rivers
+        retcode = check_call("pscoast"+" -V -R%s -JE%s -Ir/0.5p,0/0/255 -Df -O -K >> %s" % (region, center, outfile), shell=True)
+        # Plot national (N1) and state (N2) boundaries
+        retcode = check_call("pscoast"+" -V -R%s -JE%s -N1/5/0/0/0 -N2/1/0/0/0 -Df -O -K >> %s" % (region, center, outfile), shell=True)
+    except OSError, e:
+        elog.elog_complain("A pscoast call failed: %s" % e)
+        raise
+
+def gmt_overlay_grid(region, center, coords, legendloc, outfile):
+    """Overlay the grid for a given region"""
+    try:
+        retcode = check_call( "psbasemap -X0 -Y0 -R%s -JE%s -V -Bg%swesn -Lf%sk+l -O -K >> %s"
+                % (region, center, coords, legendloc, outfile), shell=True)
+    except OSError, e:
+       elog.elog_complain ("psbasemap execution failed:", e)
+       raise
+
+def gmt_add_stations(station_loc_files, symsize, rgbs, outfile):
+    """Overlay the station icons"""
+    for key in sorted(station_loc_files.iterkeys()):
+        if key == 'IU' or key == 'US': 
+            # Plots diamond symbols for US backbone stations
+            symtype='d'
+        else:
+            symtype='t'
+
+        try:
+            retcode = check_call(
+                    "psxy %s -R -JE -V -S%s%s -G%s -W -L -O -K -: >> %s"
+                    % (station_loc_files[key], symtype, symsize, rgbs[key],
+                        outfile), shell=True)
+        except OSError, e:
+            elog.elog_complain("psxy execution failed: %s" % e)
+            raise
+
+
 def main(argv=None):
-    """Main processing script
-    for all maps
-    """
-    print "Start of script at time %s" % strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+    """Main processing script for all maps """
+
+    elog.elog_init(sys.argv)
+    elog.elog_notify("Start of script")
 
     verbose, debug, year, month, maptype, deploytype, size = process_command_line(argv)
         
     if debug:
-        print "\n*** DEBUGGING ON ***"
-        print "*** No grd or grad files - just single color for speed ***\n"
+        elog.elog_notify("*** DEBUGGING ON ***")
+        elog.elog_notify("*** No grd or grad files - just single color for speed ***")
 
     common_pf = 'common.pf'
     stations_pf = 'stations.pf'
 
-    print " - Creating **%s** maps" % deploytype
+    elog.elog_notify(" - Creating **%s** maps" % deploytype)
     if verbose:
-        print " - Parse configuration parameter file (%s)" % common_pf
-        print " - Parse stations parameter file (%s)" % stations_pf
+        elog.elog_notify(" - Parse configuration parameter file (%s)" % common_pf)
+        elog.elog_notify(" - Parse stations parameter file (%s)" % stations_pf)
 
     wet_rgb = '202/255/255'
 
@@ -424,18 +543,34 @@ def main(argv=None):
     infrasound_mapping = pfget(common_pf, 'INFRASOUND_MAPPING')
     output_dir = '/var/tmp' # FOR TESTING
     sys.path.append(gmtbindir)
+    if size == 'wario':
+        paper_orientation = 'landscape'
+        paper_media = 'b0'
+        symsize = '0.3'
+    else:
+        paper_orientation = 'portrait'
+        paper_media = 'a1'
+        symsize = '0.15'
 
     # Make sure execution occurs in the right directory
     cwd = os.getcwd()
     path_parts = cwd.split('/')
     if path_parts[-1] == 'deployment_history' and path_parts[-2] == 'bin':
         if verbose or debug:
-            print ' - Already in the correct current working directory %s' % cwd
+            elog.elog_notify(' - Already in the correct current working directory %s' % cwd)
     else:
         cwd = os.getcwd() + '/bin/deployment_history'
         if verbose or debug:
-            print ' - Changed current working directory to %s' % cwd
+            elog.elog_notify (' - Changed current working directory to %s' % cwd)
         os.chdir(cwd)
+    # Make sure we set some GMT parameters for just this script
+    # GMTSET
+    try:
+        set_gmt_params(paper_orientation, paper_media)
+    except Exception, e:
+        elog.elog_complain("An error occurred setting GMT params %s")
+        raise
+
 
     for m in maptype:
         if size == 'wario':
@@ -450,42 +585,9 @@ def main(argv=None):
             png = '%s/%s' % (output_dir, finalfile)
 
         if verbose or debug or size:
-            print ' - Working on maptype: %s' % m
-            print ' - Temp postscript file: %s' % ps[1]
-            print ' - Output target: %s' % png
-
-        # Make sure we set some GMT parameters for just this script
-        # {{{ GMTSET
-        # Plot media
-        if size == 'wario':
-            paper_orientation = 'landscape'
-            paper_media = 'b0'
-        else:
-            paper_orientation = 'portrait'
-            paper_media = 'a1'
-        try:
-            retcode = check_call("gmtset"+" PAGE_COLOR 255/255/255 PAGE_ORIENTATION %s PAPER_MEDIA %s" % (paper_orientation, paper_media), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Execution failed:", e
-
-        # Basemap Anotation Parameters
-        try:
-            retcode = check_call("gmtset"+" ANNOT_OFFSET_PRIMARY 0.2c ANNOT_OFFSET_SECONDARY 0.2c LABEL_OFFSET 0.2c", shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Execution failed:", e
-
-        # Basemap Layout Parameters
-        try:
-            retcode = check_call("gmtset"+" FRAME_WIDTH 0.2c MAP_SCALE_HEIGHT 0.2c TICK_LENGTH 0.2c X_AXIS_LENGTH 25c Y_AXIS_LENGTH 15c X_ORIGIN 2.5c Y_ORIGIN 2.5c UNIX_TIME_POS -0.2c/-0.2c", shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Execution failed:", e
-
-        # Miscellaneous
-        try:
-            retcode = check_call("gmtset"+" LINE_STEP 0.025c MEASURE_UNIT inch", shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Execution failed:", e
-        # }}} GMTSET
+            elog.elog_notify (' - Working on maptype: %s' % m)
+            elog.elog_notify (' - Temp postscript file: %s' % ps[1])
+            elog.elog_notify (' - Output target: %s' % png)
 
         # Determine region of interest and center of plot
         # The lat and lon padding ensures we get full topo and bathy.
@@ -513,10 +615,10 @@ def main(argv=None):
             ak_center = '%s/%s/%s' % (ak_centerlon, ak_centerlat, ak_coords['WIDTH']) + 'i'
 
         if verbose or debug:
-            print ' - GMT USA region string: %s' % region
-            print ' - GMT USA center location string: %s' % center
-            print ' - GMT AK region string: %s' % ak_region
-            print ' - GMT AK center location string: %s' % ak_center
+            elog.elog_notify (' - GMT USA region string: %s' % region)
+            elog.elog_notify (' - GMT USA center location string: %s' % center)
+            elog.elog_notify (' - GMT AK region string: %s' % ak_region)
+            elog.elog_notify (' - GMT AK center location string: %s' % ak_center)
 
         if deploytype == 'seismic':
             station_loc_files, counter = generate_sta_locations(dbmaster, m, deploytype, year, month, verbose, debug)
@@ -534,7 +636,7 @@ def main(argv=None):
                       snets_text[key] = networks[key]['abbrev'].replace(' ', '\ ')
             elif deploytype == 'inframet':
                 if debug:
-                    print "\tWorking on inframet key: %s" % key
+                    elog.elog_notify ("\tWorking on inframet key: %s" % key)
                 if key in infrasound:
                       color = infrasound[key]['color']
                       rgbs[key] = colors[color]['rgb'].replace(',', '/')
@@ -548,138 +650,48 @@ def main(argv=None):
                color = infrasound['decom']['color']
                rgbs['decom'] = colors[color]['rgb'].replace(',', '/')
 
-        if verbose or debug:
-            print ' - Working on contiguous United States'
-
         # Create the contiguous United States topography basemap
 
         # {{{ Contiguous United States
+
+        if verbose or debug:
+            elog.elog_notify (' - Working on contiguous United States')
 
         if debug == True:
             try:
                 retcode = check_call("pscoast -R%s -JE%s -Df -A5000 -S%s -G40/200/40 -V -X2 -Y2 -K >> %s" % (region, center, wet_rgb, ps[1]), shell=True)
             except OSError, e:
-                print >>sys.stderr, "pscoast for contiguous United States execution failed:", e
+                elog.elog_die ("pscoast for contiguous United States execution failed")
         else:
             try:
                 retcode = check_call("grdimage data/usa.grd -R%s -JE%s -Cdata/land_ocean.cpt -Idata/usa.grad -V -E100 -X2 -Y2 -K >> %s" % (region, center, ps[1]), shell=True)
             except OSError, e:
-                print >>sys.stderr, "grdimage for usa.grd execution failed:", e
+                elog.elog_die ("grdimage for usa.grd execution failed")
 
-        # {{{ START: PLOT TOPO, BATHYMETRY CORRECTLY
         # Plot land areas below sea level correctly
 
-        # {{{ START: Salton Sea co-ords -R-116.8/-115/32/34
-        # Define a clip region
-        try:
-            retcode = check_call("psclip data/saltonsea.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Salton Sea psclip execution failed:", e
+        # Salton Sea co-ords -R-116.8/-115/32/34
+        gmt_fix_land_below_sealevel('saltonsea', 'Salton Sea',
+                region, center, ps[1], wet_rgb)
 
-        # Make the Salton Sea be 'land-only' and put into the clipping region
-        try:
-            retcode = check_call("grdimage data/saltonsea.grd -V -R%s -JE%s -Cdata/land_only.cpt -Idata/saltonsea.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Salton Sea grdimage execution failed:", e
+        # Death Valley co-ords -R
+        gmt_fix_land_below_sealevel('deathvalley', 'Death Valley',
+                region, center, ps[1], wet_rgb)
 
-        # Color the Salton Sea Blue
-        try:
-            retcode = check_call("pscoast -V -R%s -JE%s -C%s -Df -O -K >> %s" % (region, center, wet_rgb, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Salton Sea pscoast execution failed:", e
+        # Plot wet areas and coastline
+        gmt_plot_wet_and_coast(region, center, wet_rgb, ps[1])
 
-        # Close psclip
-        try:
-            retcode = check_call("psclip -C -K -O >> %s" % ps[1], shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Salton Sea psclip execution failed:", e
+        # Overlay the grid
+        gmt_overlay_grid(region, center, usa_coords['GRIDLINES'],
+                '-75/30/36/500', ps[1])
 
-        # }}} END: Salton Sea
-
-        # {{{ START: Death Valley co-ords -R
-        # Define a clip region
-        try:
-            retcode = check_call("psclip data/deathvalley.xy -R%s -JE%s -V -K -O >> %s" % (region, center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Death Valley psclip execution failed:", e
-
-        # Make Death Valley be 'land-only' and put into the clipping region
-        try:
-            retcode = check_call("grdimage data/deathvalley.grd -V -R%s -JE%s -Cdata/land_only.cpt -Idata/deathvalley.grad -O -K >> %s" % (region, center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Death Valley grdimage execution failed:", e
-
-        # Color the Salton Sea Blue
-        try:
-            retcode = check_call("pscoast -V -R%s -JE%s -C%s -Df -O -K >> %s" % (region, center, wet_rgb, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Death Valley pscoast execution failed:", e
-
-        # Close psclip
-        try:
-            retcode = check_call("psclip -C -K -O >> %s" % ps[1], shell=True)
-        except OSError, e:
-            print >>sys.stderr, "Death Valley psclip execution failed:", e
-
-        # }}} END: Death Valley
-
-        # }}} END: PLOT TOPO, BATHYMETRY CORRECTLY
-
-        # {{{ Plot wet areas and coastline
-        # Plot wet areas (not coast)
-        try:
-            retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,%s -S%s -A0/2/4 -Df -O -K >> %s" % (region, center, wet_rgb, wet_rgb, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "pscoast execution failed:", e
-
-        # Plot coastline in black
-        try:
-            retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,0/0/0 -Df -O -K >> %s" % (region, center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "pscoast execution failed:", e
-
-        # Plot major rivers
-        try:
-            retcode = check_call("pscoast"+" -V -R%s -JE%s -Ir/0.5p,0/0/255 -Df -O -K >> %s" % (region, center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "pscoast execution failed:", e
-
-        # Plot national (N1) and state (N2) boundaries
-        try:
-            retcode = check_call("pscoast"+" -V -R%s -JE%s -N1/5/0/0/0 -N2/1/0/0/0 -Df -O -K >> %s" % (region, center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "pscoast execution failed:", e
-
-        # }}} Plot wet areas and coastline
-
-        # {{{ Overlay the grid
-        try:
-            retcode = check_call("psbasemap -X0 -Y0 -R%s -JE%s -V -Bg%swesn -Lf-75/30/36/500k+l -O -K >> %s" % (region, center, usa_coords['GRIDLINES'], ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "psbasemap execution failed:", e
         # Add stations from local text files
-        for key in sorted(station_loc_files.iterkeys()):
-            if size == 'wario':
-                symsize = '0.3'
-            else:
-                symsize = '0.15'
-            if key == 'IU' or key == 'US': 
-                # Plots diamond symbols for US backbone stations
-                try:
-                    retcode = check_call("psxy %s -R -JE -V -Sd%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
-                except OSError, e:
-                    print >>sys.stderr, "psxy execution failed:", e
-            else:
-                try:
-                    retcode = check_call("psxy %s -R -JE -V -St%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
-                except OSError, e:
-                    print >>sys.stderr, "psxy execution failed:", e
-        # }}} Overlay the grid
+        gmt_add_stations(station_loc_files, symsize, rgbs, ps[1])
 
         # }}} Contiguous United States
 
         if verbose or debug:
-            print ' - Working on Alaska inset'
+            elog.elog_notify (' - Working on Alaska inset')
 
         # {{{ Alaska
 
@@ -687,63 +699,24 @@ def main(argv=None):
             try:
                 retcode = check_call("pscoast -R%s -JE%s -Df -A5000 -S%s -G40/200/40 -V -X0.1i -Y0.1i -O -K >> %s" % (ak_region, ak_center, wet_rgb, ps[1]), shell=True)
             except OSError, e:
-                print >>sys.stderr, "pscoast for Alaska execution failed:", e
+                elog.elog_complain("pscoast for Alaska execution failed: %s" % e)
+                raise
         else:
             try:
                 retcode = check_call("grdimage data/alaska.grd -R%s -JE%s -Cdata/land_ocean.cpt -Idata/alaska.grad -V -E100 -X0.1i -Y0.1i -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
             except OSError, e:
-                print >>sys.stderr, "grdimage for alaska.grd execution failed:", e
+                elog.elog_complain("grdimage for alaska.grd execution failed: %s" % e)
+                raise
 
-        # {{{ Plot wet areas and coastline
-        # Plot wet areas (not coast)
-        try:
-            retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,%s -S%s -A0/2/4 -Df -O -K >> %s" % (ak_region, ak_center, wet_rgb, wet_rgb, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "pscoast execution failed:", e
+        # Plot wet areas and coastline
+        gmt_plot_wet_and_coast(ak_region, ak_center, wet_rgb, ps[1])
 
-        # Plot coastline in black
-        try:
-            retcode = check_call("pscoast"+" -V -R%s -JE%s -W0.5p,0/0/0 -Df -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "pscoast execution failed:", e
+        # Overlay the grid
+        gmt_overlay_grid(ak_region, ak_center, ak_coords['GRIDLINES'],
+                '-145/57/60/500', ps[1])
 
-        # Plot major rivers
-        try:
-            retcode = check_call("pscoast"+" -V -R%s -JE%s -Ir/0.5p,0/0/255 -Df -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "pscoast execution failed:", e
-
-        # Plot national (N1) and state (N2) boundaries
-        try:
-            retcode = check_call("pscoast"+" -V -R%s -JE%s -N1/5/0/0/0 -N2/1/0/0/0 -Df -O -K >> %s" % (ak_region, ak_center, ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "pscoast execution failed:", e
-
-        # }}} Plot wet areas and coastline
-
-        # {{{ Overlay the grid
-        try:
-            retcode = check_call("psbasemap -X0 -Y0 -R%s -JE%s -V -Bg%swesn -Lf-145/57/60/500k+l -O -K >> %s" % (ak_region, ak_center, ak_coords['GRIDLINES'], ps[1]), shell=True)
-        except OSError, e:
-            print >>sys.stderr, "psbasemap execution failed:", e
         # Add stations from local text files
-        for key in sorted(station_loc_files.iterkeys()):
-            if size == 'wario':
-                symsize = '0.3'
-            else:
-                symsize = '0.15'
-            if key == 'IU' or key == 'US': 
-                # Plots diamond symbols for US backbone stations
-                try:
-                    retcode = check_call("psxy %s -R -JE -V -Sd%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
-                except OSError, e:
-                    print >>sys.stderr, "psxy execution failed:", e
-            else:
-                try:
-                    retcode = check_call("psxy %s -R -JE -V -St%s -G%s -W -L -O -K -: >> %s" % (station_loc_files[key], symsize, rgbs[key], ps[1]), shell=True)
-                except OSError, e:
-                    print >>sys.stderr, "psxy execution failed:", e
-        # }}} Overlay the grid
+        gmt_add_stations(station_loc_files, symsize, rgbs, ps[1])
 
         # }}} Alaska
 
@@ -752,7 +725,7 @@ def main(argv=None):
             os.unlink(station_loc_files[key])
 
         if verbose or debug:
-            print ' - Working on year and month timestamp'
+            elog.elog_notify(' - Working on year and month timestamp')
         # Create the text files of year & month and legend
         time_file = tempfile.mkstemp(suffix='.txt', prefix='year_month_')
         # time_file = "%syear_month.txt" % tmp
@@ -761,7 +734,7 @@ def main(argv=None):
         tf.close()
 
         if verbose or debug:
-            print ' - Working on copyright file'
+            elog.elog_notify(' - Working on copyright file')
         copyright_file = tempfile.mkstemp(suffix='.txt', prefix='copyright_')
         # copyright_file = "%scopyright.txt" % tmp
         cf = open(copyright_file[1], 'w')
@@ -769,7 +742,7 @@ def main(argv=None):
         cf.close()
 
         if verbose or debug:
-            print ' - Working on snet files'
+            elog.elog_notify(' - Working on snet files')
         snets_file = tempfile.mkstemp(suffix='.txt', prefix='snets_')
         sf = open(snets_file[1], 'w')
         if size == 'wario':
@@ -795,27 +768,35 @@ def main(argv=None):
 
         # Overlay the copyright notice
         if verbose or debug:
-            print ' - Overlay the copyright notice'
+            elog.elog_notify(' - Overlay the copyright notice')
+
         try:
-            retcode = check_call("pstext %s -R%s -JE%s -V -D0.25/0.25 -S2p/255/255/255 -P -O -K >> %s" % (copyright_file[1], region, center, ps[1]), shell=True)
+            retcode = check_call("pstext %s -R%s -JE%s -V -D0.25/0.25 -S2p/255/255/255 -P -O -K >> %s"
+                    % (copyright_file[1], region, center, ps[1]), shell=True)
         except OSError, e:
-            print >>sys.stderr, "Copyright msg plotting error: pstext execution failed:", e
+            elog.elog_complain("Copyright msg plotting error: pstext execution failed")
+            os.unlink(copyright_file[1])
+            raise
         else:
             os.unlink(copyright_file[1])
 
         # Overlay the date legend stamp
         if verbose or debug:
-            print ' - Overlay the date legend stamp'
+            elog.elog_notify (' - Overlay the date legend stamp')
         try:
-            retcode = check_call("pstext " + time_file[1] + " -R" + region + " -JE" + center + " -V -D0.25/0.25 -W255/255/255o1p/0/0/0 -C50% -P -O -K >> " + ps[1], shell=True)
+            retcode = check_call("pstext " + time_file[1] + " -R" + region
+                    + " -JE" + center + " -V -D0.25/0.25" +
+                    " -W255/255/255o1p/0/0/0 -C50% -P -O -K >> " + ps[1],
+                    shell=True)
         except OSError, e:
-            print >>sys.stderr, "Time msg plotting error: pstext execution failed:", e
+            elog.elog_complain("Time msg plotting error: pstext execution failed")
+            raise
         else:
             os.unlink(time_file[1])
 
         # Overlay the snet legend
         if verbose or debug:
-            print ' - Overlay the snet legend'
+            elog.elog_notify (' - Overlay the snet legend')
 
         if deploytype == 'seismic':
             legend_width = '2.6'
@@ -823,24 +804,29 @@ def main(argv=None):
         elif deploytype == 'inframet':
             legend_width = '4.2'
             legend_height = '1.7'
+        else:
+            elog.elog_complain("unknown deploytype")
+            return 1
 
         try:
             retcode = check_call("pslegend %s -R%s -JE%s -V -D-90/26/%si/%si/TC -F -G255/255/255 -P -O >> %s" % (snets_file[1], region, center, legend_width, legend_height, ps[1]), shell=True)
         except OSError, e:
-            print >>sys.stderr, "Network (snet) legend plotting error: pslegend execution failed:", e
+             elog.elog_complain("Network (snet) legend plotting error: pslegend execution failed")
+             raise
         else:
             os.unlink(snets_file[1])
 
         # Run Imagemagick convert cmd on Postscript output
         if size == 'wario':
-            print " - Your file for wario is ready for photoshop and is called %s" % ps[1]
+            elog.elog_notify (" - Your file for wario is ready for photoshop and is called %s" % ps[1])
         else:
             if verbose or debug:
-                print " - Running Imagemagick's convert command on postscript file %s" % ps[1]
+                elog.elog_notify (" - Running Imagemagick's convert command on postscript file %s" % ps[1])
             try:
                 retcode = check_call("convert -trim -depth 16 +repage %s %s" % (ps[1], png), shell=True)
             except OSError, e:
-                print >>sys.stderr, "Execution failed:", e
+                elog.elog_complain("Execution failed")
+                raise
             else:
                 os.unlink(ps[1])
 
@@ -848,13 +834,16 @@ def main(argv=None):
                 web_output_dir = web_output_dir_infra
 
             if verbose or debug:
-                print " - Going to move %s to %s/%s" % (png, web_output_dir, finalfile)
+                elog.elog_notify(" - Going to move %s to %s/%s" % (png, web_output_dir,
+                            finalfile))
             try:
                 move(png, '%s/%s' % (web_output_dir, finalfile))
             except OSError, e:
-                print >>sys.stderr, "shutil.move failed:", e
+                elog.elog_notify("shutil.move failed")
+                raise
             else:
-                print " - Your file is ready and is called %s/%s" % (web_output_dir, finalfile)
+                elog.elog_notify (" - Your file is ready and is called %s/%s"
+                        % (web_output_dir, finalfile))
 
     return 0
 
